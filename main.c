@@ -102,6 +102,7 @@ void ls(const char * directory, bool inode, bool longList, bool recursive) {
                 int numHardLinks = buf.st_nlink;
                 int sizeInBytes = buf.st_size;
                 
+                // Extracted time from: https://www.cplusplus.com/reference/ctime/strftime/
                 struct tm * timeInfo;
                 char date[100];
                 timeInfo = localtime(&buf.st_mtime);
@@ -221,8 +222,11 @@ int main(int argc, const char * argv[]) {
         printf("usage = ./UnixLs -{options} -{directory/directories}\n");
         return 0;
     }
-    // Assumes i, R is set
-    // - TODO: implement long listing
+    
+    // Set booleans accordingly
+    // 1. inode
+    // 2. long listing
+    // 3. recursive
     ls(argv[1], true, true, false);
 
     return 0;
