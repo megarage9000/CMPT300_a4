@@ -1,5 +1,5 @@
 all:
-	gcc -pthread -o UnixLs main.c
+	gcc -Wall -Werror -pthread -o UnixLs main.c
 
 demo:
 	gcc -pthread -o demo infodemo.c

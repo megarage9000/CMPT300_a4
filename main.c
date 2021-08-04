@@ -7,22 +7,64 @@
 #include <string.h>
 #include <grp.h>
 #include <pwd.h>
+#include <stdbool.h>
 
 char command[4];
 
-void ls() {
+bool equalStrings(char * stringA, char * stringB) {
+    return strcmp(stringA, stringB) == 0;
+}
+
+void ls(const char * directory, bool inode, bool longList, bool recursive) {
     DIR * dir;
-    struct dirent * ptr;
-    int i = 0;
-    dir = opendir(".");
+    struct dirent *ptr;
+    struct stat buf;
+    dir = opendir(directory);
+
+    int dir_length = strlen(directory);
+    char * newPath = NULL;
     while((ptr = readdir(dir)) != NULL) {
-        if (i>2) {
-            printf("%s\n", ptr->d_name);
+
+        // Create new string that stores the path to new directory point
+        // - May need to rework into a more elagant solution
+        char * dirEntry = ptr->d_name;
+        int newEntryLength = strlen(dirEntry);
+        newPath = malloc(dir_length + 2 + newEntryLength);
+
+        // Combining directory root with directory entry
+        strcpy(newPath, directory);
+        strcat(newPath, "/");
+        strcat(newPath, dirEntry);
+
+        // TODO: determine when to use lstat() for soft links
+        if (stat(newPath, &buf) != -1) {
+            // If -i has been set
+            if(inode) {
+                int inode = buf.st_ino;
+                printf("%d ", inode);
+            }
+            // If -l has been set
+            if(longList) {
+
+            }
+
+            // Finally, print out the path of the new directory entry
+            printf("%s\n", newPath);
+            
+            // If -R has been set, and checking whether
+            // - the current file is not . / .. to avoid segmentation faults
+            // - the current entry is a directory
+            if(recursive 
+                && S_ISDIR(buf.st_mode) // Checks if the entry is a directory
+                && (!equalStrings(dirEntry, "..") && !equalStrings(dirEntry, "."))) {
+                ls(newPath, inode, longList, recursive);
+            }
         }
-        i++;
+        free(newPath);
     }
     closedir(dir);
 }
+
 
 void lsi(char * directory) {
     DIR * dir;
@@ -38,11 +80,15 @@ void lsi(char * directory) {
     path[dir_length] = '/';
     
     while((ptr = readdir(dir)) != NULL) {
+
+        // Create new string that stores the path to new directory point
+        // - May need to rework into a more elagant solution
         int newEntryLength = strlen(ptr->d_name);
         char * newPath = malloc(dir_length + 1 + newEntryLength);
-        strncpy(newPath, path, sizeof(path));
+        //strncpy(newPath, path, sizeof(path));
         strcat(newPath, ptr->d_name);
         printf("Path: %s\n", newPath);
+
         if (stat(newPath, &buf) != -1) {
 
             
@@ -106,11 +152,14 @@ int main(int argc, const char * argv[]) {
     //     printf("\n");
     // }
     
+    // TODO: determine how to get options from the options list
     if(argc < 2) {
         printf("usage = ./UnixLs -{options} -{directory/directories}\n");
         return 0;
     }
-    lsi(argv[1]);
+    // Assumes i, R is set
+    // - TODO: implement long listing
+    ls(argv[1], true, false, true);
 
     return 0;
 }
