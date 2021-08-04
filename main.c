@@ -24,7 +24,7 @@ void ls() {
     closedir(dir);
 }
 
-void lsi() {
+void lsi(char * directory) {
     DIR * dir;
     struct dirent *ptr;
     struct stat buf;
@@ -33,16 +33,23 @@ void lsi() {
     dir = opendir(dir_str);
     
     size_t dir_length = strlen(dir_str);
-    char *path = malloc(dir_length + 1 + NAME_MAX);
+    char *path = malloc(dir_length + 1);
     strcpy(path, dir_str);
     path[dir_length] = '/';
     
     while((ptr = readdir(dir)) != NULL) {
-        strcpy(path + dir_length + 1, ptr->d_name);
-        if (stat(path, &buf) != -1) {
-//            printf("%d bytes\n", buf.st_size);
-//            printf("%s\n", buf.st_atime);
+        int newEntryLength = strlen(ptr->d_name);
+        char * newPath = malloc(dir_length + 1 + newEntryLength);
+        strncpy(newPath, path, sizeof(path));
+        strcat(newPath, ptr->d_name);
+        printf("Path: %s\n", newPath);
+        if (stat(newPath, &buf) != -1) {
+
+            
+           printf("%d bytes\n", (int)buf.st_size);
+           printf("%ld\n", buf.st_atime);
         }
+        free(newPath);
         
     }
     closedir(dir);
@@ -84,20 +91,26 @@ void lsr(char *dir_str) {
 
 int main(int argc, const char * argv[]) {
     // insert code here...
-    while (1) {
-        printf("Hello, command?\n");
-        printf("\n");
-        scanf("%s", command);
+    // while (1) {
+    //     printf("Hello, command?\n");
+    //     printf("\n");
+    //     scanf("%s", command);
         
-        if (command[0] == 'l' && command[1] == 's') {
-            ls();
-        } else if (command[0] == 'i') {
-            lsi();
-        } else if (command[0] == 'R') {
-            lsr(".");
-        }
-        printf("\n");
-    }
+    //     if (command[0] == 'l' && command[1] == 's') {
+    //         ls();
+    //     } else if (command[0] == 'i') {
+    //         lsi();
+    //     } else if (command[0] == 'R') {
+    //         lsr(".");
+    //     }
+    //     printf("\n");
+    // }
     
+    if(argc < 2) {
+        printf("usage = ./UnixLs -{options} -{directory/directories}\n");
+        return 0;
+    }
+    lsi(argv[1]);
+
     return 0;
 }
