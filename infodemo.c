@@ -1,4 +1,12 @@
-
+#include <stdio.h>
+#include <stdlib.h>
+#include <sys/types.h>
+#include <dirent.h>
+#include <sys/stat.h>
+#include <limits.h>
+#include <string.h>
+#include <grp.h>
+#include <pwd.h>
 
 void getAndPrintGroup(gid_t grpNum) {
   struct group *grp;

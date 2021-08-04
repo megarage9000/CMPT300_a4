@@ -5,6 +5,8 @@
 #include <sys/stat.h>
 #include <limits.h>
 #include <string.h>
+#include <grp.h>
+#include <pwd.h>
 
 char command[4];
 
@@ -75,6 +77,10 @@ void lsr(char *dir_str) {
     }
     closedir(dir);
 }
+
+// ls -i = list files with inode index
+// ls -l = long listing format
+// ls -R = list subdirectories recursively
 
 int main(int argc, const char * argv[]) {
     // insert code here...
