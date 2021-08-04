@@ -8,11 +8,63 @@
 #include <grp.h>
 #include <pwd.h>
 #include <stdbool.h>
+#include <time.h>
 
 char command[4];
 
 bool equalStrings(char * stringA, char * stringB) {
     return strcmp(stringA, stringB) == 0;
+}
+
+void printPermissions(mode_t mode) {
+
+    // print whether entry is a directory or a regular file
+    printf("%c", (S_ISDIR(mode) ? 'd' : S_ISREG(mode) ? 'a' : '-'));
+
+    // print owner permissions
+    printf("%c%c%c",
+        mode & S_IRUSR ? 'r' : '-',
+        mode & S_IWUSR ? 'w' : '-',
+        mode & S_IXUSR ? 'e' : '-'
+    );
+
+    // print group permissions
+    printf("%c%c%c",
+        mode & S_IRGRP ? 'r' : '-',
+        mode & S_IWGRP ? 'w' : '-',
+        mode & S_IXGRP ? 'e' : '-'
+    );
+
+    // print other permissions
+    printf("%c%c%c",
+        mode & S_IROTH ? 'r' : '-',
+        mode & S_IWOTH ? 'w' : '-',
+        mode & S_IXOTH ? 'e' : '-'
+    );
+
+}
+
+// From infodemo.c
+void getAndPrintGroup(gid_t grpNum) {
+  struct group *grp;
+
+  grp = getgrgid(grpNum); 
+  
+  if (grp) {
+    printf("%s", grp->gr_name);
+  }
+}
+
+
+
+void getAndPrintUserName(uid_t uid) {
+
+  struct passwd *pw = NULL;
+  pw = getpwuid(uid);
+
+  if (pw) {
+    printf("%s", pw->pw_name);
+  } 
 }
 
 void ls(const char * directory, bool inode, bool longList, bool recursive) {
@@ -36,7 +88,7 @@ void ls(const char * directory, bool inode, bool longList, bool recursive) {
         strcat(newPath, "/");
         strcat(newPath, dirEntry);
 
-        // TODO: determine when to use lstat() for soft links
+
         if (stat(newPath, &buf) != -1) {
             // If -i has been set
             if(inode) {
@@ -46,10 +98,24 @@ void ls(const char * directory, bool inode, bool longList, bool recursive) {
             // If -l has been set
             if(longList) {
 
+                printPermissions(buf.st_mode);
+                int numHardLinks = buf.st_nlink;
+                int sizeInBytes = buf.st_size;
+                
+                struct tm * timeInfo;
+                char date[100];
+                timeInfo = localtime(&buf.st_mtime);
+                strftime(date, 100, "%b %d %Y %I:%M", timeInfo);
+
+                printf(" %d ", numHardLinks);
+                getAndPrintUserName(buf.st_uid);
+                printf(" ");
+                getAndPrintGroup(buf.st_gid);
+                printf(" %d %s", sizeInBytes, date);
             }
 
             // Finally, print out the path of the new directory entry
-            printf("%s\n", newPath);
+            printf(" %s\n", newPath);
             
             // If -R has been set, and checking whether
             // - the current file is not . / .. to avoid segmentation faults
@@ -90,10 +156,8 @@ void lsi(char * directory) {
         printf("Path: %s\n", newPath);
 
         if (stat(newPath, &buf) != -1) {
-
-            
-           printf("%d bytes\n", (int)buf.st_size);
-           printf("%ld\n", buf.st_atime);
+        //    printf("%d bytes\n", (int)buf.st_size);
+        //    printf("%ld\n", buf.st_atime);
         }
         free(newPath);
         
@@ -159,7 +223,7 @@ int main(int argc, const char * argv[]) {
     }
     // Assumes i, R is set
     // - TODO: implement long listing
-    ls(argv[1], true, false, true);
+    ls(argv[1], true, true, false);
 
     return 0;
 }
