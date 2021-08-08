@@ -52,7 +52,7 @@ void getAndPrintGroup(gid_t grpNum) {
   grp = getgrgid(grpNum); 
   
   if (grp) {
-    printf("%6s", grp->gr_name);
+    printf("%11s", grp->gr_name);
   }
 }
 
@@ -64,7 +64,7 @@ void getAndPrintUserName(uid_t uid) {
   pw = getpwuid(uid);
 
   if (pw) {
-    printf("%6s", pw->pw_name);
+    printf("%11s", pw->pw_name);
   } 
 }
 
@@ -81,6 +81,9 @@ void ls(const char * directory, bool inode, bool longList, bool recursive) {
         // Create new string that stores the path to new directory point
         // - May need to rework into a more elagant solution
         char * dirEntry = ptr->d_name;
+        if (dirEntry[0] == '.') {
+            continue;
+        }
         int newEntryLength = strlen(dirEntry);
         newPath = malloc(dir_length + 2 + newEntryLength);
         
@@ -117,7 +120,8 @@ void ls(const char * directory, bool inode, bool longList, bool recursive) {
             }
 
             // Finally, print out the path of the new directory entry
-            printf("   %s", newPath);
+//            printf("   %s", newPath);
+            printf("   %s", ptr->d_name);
             if (longList && S_ISLNK(buf.st_mode)) {
                 // https://www.ibm.com/docs/en/zos/2.4.0?topic=functions-readlink-read-value-symbolic-link
                 char *tmp;
