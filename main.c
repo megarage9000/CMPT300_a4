@@ -9,6 +9,7 @@
 #include <pwd.h>
 #include <stdbool.h>
 #include <time.h>
+#include <unistd.h>
 
 char command[4];
 
@@ -19,27 +20,27 @@ bool equalStrings(char * stringA, char * stringB) {
 void printPermissions(mode_t mode) {
 
     // print whether entry is a directory or a regular file
-    printf("%c", (S_ISDIR(mode) ? 'd' : S_ISREG(mode) ? 'a' : '-'));
+    printf("%3c", (S_ISDIR(mode) ? 'd' : S_ISLNK(mode) ? 'l' : '-'));
 
     // print owner permissions
     printf("%c%c%c",
         mode & S_IRUSR ? 'r' : '-',
         mode & S_IWUSR ? 'w' : '-',
-        mode & S_IXUSR ? 'e' : '-'
+        mode & S_IXUSR ? 'x' : '-'
     );
 
     // print group permissions
     printf("%c%c%c",
         mode & S_IRGRP ? 'r' : '-',
         mode & S_IWGRP ? 'w' : '-',
-        mode & S_IXGRP ? 'e' : '-'
+        mode & S_IXGRP ? 'x' : '-'
     );
 
     // print other permissions
     printf("%c%c%c",
         mode & S_IROTH ? 'r' : '-',
         mode & S_IWOTH ? 'w' : '-',
-        mode & S_IXOTH ? 'e' : '-'
+        mode & S_IXOTH ? 'x' : '-'
     );
 
 }
@@ -51,7 +52,7 @@ void getAndPrintGroup(gid_t grpNum) {
   grp = getgrgid(grpNum); 
   
   if (grp) {
-    printf("%s", grp->gr_name);
+    printf("%6s", grp->gr_name);
   }
 }
 
@@ -63,7 +64,7 @@ void getAndPrintUserName(uid_t uid) {
   pw = getpwuid(uid);
 
   if (pw) {
-    printf("%s", pw->pw_name);
+    printf("%6s", pw->pw_name);
   } 
 }
 
@@ -82,41 +83,53 @@ void ls(const char * directory, bool inode, bool longList, bool recursive) {
         char * dirEntry = ptr->d_name;
         int newEntryLength = strlen(dirEntry);
         newPath = malloc(dir_length + 2 + newEntryLength);
-
+        
         // Combining directory root with directory entry
         strcpy(newPath, directory);
         strcat(newPath, "/");
         strcat(newPath, dirEntry);
-
-
-        if (stat(newPath, &buf) != -1) {
+        
+        if (lstat(newPath, &buf) != -1) {
             // If -i has been set
             if(inode) {
                 int inode = buf.st_ino;
-                printf("%d ", inode);
+                printf("%9d ", inode);
             }
             // If -l has been set
             if(longList) {
 
                 printPermissions(buf.st_mode);
                 int numHardLinks = buf.st_nlink;
-                int sizeInBytes = buf.st_size;
+                long sizeInBytes = buf.st_size;
                 
                 // Extracted time from: https://www.cplusplus.com/reference/ctime/strftime/
                 struct tm * timeInfo;
-                char date[100];
+                char date[20];
+                
                 timeInfo = localtime(&buf.st_mtime);
-                strftime(date, 100, "%b %d %Y %I:%M", timeInfo);
-
-                printf(" %d ", numHardLinks);
+                strftime(date, 20, "%b %d %Y %H:%M", timeInfo);
+    
+                printf(" %6d ", numHardLinks);
                 getAndPrintUserName(buf.st_uid);
                 printf(" ");
                 getAndPrintGroup(buf.st_gid);
-                printf(" %d %s", sizeInBytes, date);
+                printf(" %11ld    %11s", sizeInBytes, date);
             }
 
             // Finally, print out the path of the new directory entry
-            printf(" %s\n", newPath);
+            printf("   %s", newPath);
+            if (longList && S_ISLNK(buf.st_mode)) {
+                // https://www.ibm.com/docs/en/zos/2.4.0?topic=functions-readlink-read-value-symbolic-link
+                char *tmp;
+                tmp = malloc(10);
+                tmp[9] = '\0';
+                if (readlink(dirEntry, tmp, sizeof(tmp)) < 0) {
+                  perror("readlink() error");
+                } else {
+                    printf(" -> %s", tmp);
+                }
+            }
+            printf("\n");
             
             // If -R has been set, and checking whether
             // - the current file is not . / .. to avoid segmentation faults
@@ -128,70 +141,6 @@ void ls(const char * directory, bool inode, bool longList, bool recursive) {
             }
         }
         free(newPath);
-    }
-    closedir(dir);
-}
-
-
-void lsi(char * directory) {
-    DIR * dir;
-    struct dirent *ptr;
-    struct stat buf;
-    
-    char *dir_str = ".";
-    dir = opendir(dir_str);
-    
-    size_t dir_length = strlen(dir_str);
-    char *path = malloc(dir_length + 1);
-    strcpy(path, dir_str);
-    path[dir_length] = '/';
-    
-    while((ptr = readdir(dir)) != NULL) {
-
-        // Create new string that stores the path to new directory point
-        // - May need to rework into a more elagant solution
-        int newEntryLength = strlen(ptr->d_name);
-        char * newPath = malloc(dir_length + 1 + newEntryLength);
-        //strncpy(newPath, path, sizeof(path));
-        strcat(newPath, ptr->d_name);
-        printf("Path: %s\n", newPath);
-
-        if (stat(newPath, &buf) != -1) {
-        //    printf("%d bytes\n", (int)buf.st_size);
-        //    printf("%ld\n", buf.st_atime);
-        }
-        free(newPath);
-        
-    }
-    closedir(dir);
-}
-
-void lsr(char *dir_str) {
-    DIR * dir;
-    struct dirent *ptr;
-    struct stat buf;
-    
-    dir = opendir(dir_str);
-    
-    size_t dir_length = strlen(dir_str);
-    char *path = malloc(dir_length + 1 + NAME_MAX);
-    strcpy(path, dir_str);
-    path[dir_length] = '/';
-    
-    int i = 0;
-    while((ptr = readdir(dir)) != NULL) {
-        strcpy(path + dir_length + 1, ptr->d_name);
-        if (stat(path, &buf) != -1) {
-//            printf("%s\n", path);
-            if (i>1) {
-                printf("%s\n", ptr->d_name);
-            }
-        }
-        if (i>1 && S_ISDIR(buf.st_mode)) {
-            printf("going to %s\n", path);
-            lsr(path);
-        }
-        i++;
     }
     closedir(dir);
 }
@@ -223,11 +172,61 @@ int main(int argc, const char * argv[]) {
         return 0;
     }
     
+    // https://www.delftstack.com/howto/c/string-contains-in-c/
+    char *ret;
+    bool l = false;
+    bool i = false;
+    bool r = false;
+    int onlyOneArg = 3;
+    
+    ret = strstr(argv[1], "l");
+    if (ret) {
+        l = true;
+        onlyOneArg--;
+    } else if (argc == 4) {
+        ret = strstr(argv[2], "l");
+        if (ret) {
+            l = true;
+            onlyOneArg--;
+        }
+    }
+    
+    ret = strstr(argv[1], "i");
+    if (ret) {
+        i = true;
+        onlyOneArg--;
+    } else if (argc == 4) {
+        ret = strstr(argv[2], "i");
+        if (ret) {
+            i = true;
+            onlyOneArg--;
+        }
+    }
+    
+    ret = strstr(argv[1], "R");
+    if (ret) {
+        r = true;
+        onlyOneArg--;
+    } else if (argc == 4) {
+        ret = strstr(argv[2], "R");
+        if (ret) {
+            r = true;
+            onlyOneArg--;
+        }
+    }
+    
     // Set booleans accordingly
     // 1. inode
     // 2. long listing
     // 3. recursive
-    ls(argv[1], true, true, false);
+    if (argc == 4) {
+        ls(argv[3], i, l, r);
+    } else if (onlyOneArg != 3) {
+        ls(argv[2], i, l, r);
+    } else {
+        ls(argv[1], false, false, false);
+    }
+    
 
     return 0;
 }
